@@ -32,7 +32,6 @@ req_specs = [
     'Ram Type',
     'RAM Bus (MHz)',
     'Storage',
-    'HDD',
     'Graphics Chipset',
     'Operating System',
     'Color',
