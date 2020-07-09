@@ -11,15 +11,7 @@ sheet_url = "https://docs.google.com/spreadsheets/d/1O65J346YX-cprNxW4BW7_-L15lw
 workbook = client.open_by_url(sheet_url)
 selected_tab = workbook.worksheet("Sheet1")
 
-chrome_options = webdriver.ChromeOptions()
-chrome_options.add_argument('--headless')
-chrome_options.add_argument('--no-sandbox')
-chrome_options.add_argument('--disable-dev-shm-usage')
-driver = webdriver.Chrome(
-    'C:/Development/res/chromedriver', options=chrome_options)
-
-base_url = 'https://www.ryanscomputers.com/search?q='
-page = '&idx=products&p='
+base_url = 'https://www.ryanscomputers.com'
 req_specs = [
     'Model',
     'Processor Model',
@@ -41,10 +33,21 @@ req_specs = [
 ]
 
 
+def first_search(driver, base_url, qry):
+    driver.get(base_url)
+    sleep(1)
+    search_box = driver.find_element_by_id('search')
+    search_box.send_keys(qry)
+    sleep(1)
+    search_btn = driver.find_element_by_id('alg-search-btn')
+    search_btn.click()
+
+
 # Parse Product links from a search page
-def get_product_links(driver, search_url):
-    driver.get(search_url)
-    sleep(2)
+def get_product_links(driver, search_url, is_first_page):
+    if not is_first_page:
+        driver.get(search_url)
+    sleep(1)
     soup = BeautifulSoup(driver.page_source, features='html.parser')
     page_items = soup.find_all('div', {'class': 'product-thumb'})
     product_links = []
@@ -74,17 +77,31 @@ def get_product_details(driver, product_link):
 
 
 qry = input('Which product are you finding? - ')
-p_qry = qry.replace(' ', '%20')
-search_url = base_url + p_qry + page
+# p_qry1 = qry.strip().replace(' ', '+')
+# p_qry2 = qry.strip().replace(' ', '%20')
+# idx = '&idx=products&p='
+page_counter = 0
+# search_url = base_url + p_qry1
+# https://www.ryanscomputers.com/search?q=intel%20core%20i5%2010th%20gen&idx=products&p=0
 
 starting_row = int(
     input('Write down the starting row number of Google Sheet - '))
+# Open the driver
+chrome_exe_src = 'C:/Development/res/chromedriver'
+chrome_options = webdriver.ChromeOptions()
+chrome_options.add_argument('--headless')
+# chrome_options.add_argument('--no-sandbox')
+chrome_options.add_argument('--disable-dev-shm-usage')
+driver = webdriver.Chrome(chrome_exe_src, options=chrome_options)
+# driver = webdriver.Chrome(chrome_exe_src)
+first_search(driver, base_url, qry)
+is_first_page = True
 will_run = True
-s_url = search_url + '0'
-page_counter = 0
 row_counter = 0
+search_url = ''
 while will_run and page_counter < 10:
-    product_links = get_product_links(driver, s_url)
+    print(f'Digging on page {page_counter}')
+    product_links = get_product_links(driver, search_url, is_first_page)
     try:
         for i in range(len(product_links)):
             details = get_product_details(driver, product_links[i])
@@ -96,18 +113,23 @@ while will_run and page_counter < 10:
                 except:
                     row_data.append('N/A')
             f_row_data = [row_data]
-            selected_tab.update(f"A{starting_row + row_counter}", f_row_data)
+            selected_tab.update(
+                f"A{starting_row + row_counter}", f_row_data)
             row_counter += 1
         try:
-            driver.get(s_url)
+            if is_first_page:
+                first_search(driver, base_url, qry)
+            else:
+                driver.get(search_url)
             sleep(2)
-            s_url = driver.find_element_by_xpath(
+            search_url = driver.find_element_by_xpath(
                 '//a[@aria-label="Next"]').get_attribute("href")
             page_counter += 1
         except:
             will_run = False
     except:
         will_run = False
+    is_first_page = False
 
 
 driver.close()
